@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: scanbit-trello-backend
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      # NOTE: Add TRELLO_API_KEY, TRELLO_API_SECRET, FLASK_SECRET_KEY, and CALLBACK_URL
+      # in the Render Dashboard Environment tab.
