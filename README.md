@@ -1,100 +1,101 @@
-# Scanbit Trello OAuth Testing Backend
+# Scanbit Modular Testing Backend (Trello, Notion, Cloudflare)
 
-A minimal Flask backend for testing Trello OAuth 1.0a authentication, ready to be deployed to **Render** (`render.com`).
+A clean, modularized Flask application for testing **Trello**, **Notion**, and **Cloudflare** integrations on **Render** (`render.com`).
 
 ---
 
-## 🛠️ What Was Fixed & Improved
+## 📂 Modular File Structure
 
-1. **Fixed Link & Syntax Artifacts:**
-   - Removed Markdown link formatting (`[https://...](https://...)`) from `REQUEST_TOKEN_URL`, `AUTHORIZE_URL`, `ACCESS_TOKEN_URL`, and Trello API URLs.
-   - Corrected `if **name** == "__main__":` to valid Python syntax: `if __name__ == "__main__":`.
-2. **Render Port & WSGI Compatibility:**
-   - Added `os.environ.get("PORT", 8000)` so Render can bind to its dynamic `$PORT`.
-   - Added `gunicorn` to `requirements.txt` and created a `Procfile` for production deployment on Render.
-3. **Session & Cookie Handling:**
-   - Added error handling if `resource_owner_key` / `resource_owner_secret` is missing from the session.
-   - Configured cookie settings (`SESSION_COOKIE_SAMESITE = "Lax"`) so Flask session cookies survive cross-site OAuth redirects from Trello.
-4. **Conveniences for Testing:**
-   - Added `/` (Home) endpoint so visiting the base URL on Render doesn't return a 400/404 error.
-   - Added `/health` endpoint for uptime checks and Render deployment verification.
+The backend is cleanly divided into separate Python files by service, connected via Flask Blueprints in `app.py`:
+
+```text
+├── trello.py                         # Trello OAuth 1.0a & Trello API endpoints
+├── notion.py                         # Notion OAuth 2.0 & Notion API endpoints
+├── cloudflare.py                     # Cloudflare API Token & DNS endpoints
+├── app.py                            # Orchestrator & Interactive HTML Dashboard
+├── requirements.txt                  # Python dependencies
+├── Procfile                          # Render / WSGI start command
+├── render.yaml                       # Optional Render Blueprint spec
+└── .env.example                      # Environment variables template
+```
+
+---
+
+## 🛠️ Service Modules & Endpoints
+
+### 1️⃣ `trello.py` (Trello Integration)
+| Endpoint | Method | Purpose |
+| :--- | :---: | :--- |
+| **`/auth`** | `GET` | Starts Trello OAuth 1.0a authorization flow. |
+| **`/callback`** | `GET` | Handles OAuth callback & saves tokens in session. |
+| **`/boards`** | `GET` | Lists all Trello boards for the user. |
+| **`/boards/<id>/lists`** | `GET` | Lists all columns/lists on a board. |
+| **`/cards`** | `POST` | Creates a card (`{"name": "...", "idList": "..."}`). |
+| **`/webhook`** | `HEAD`/`POST` | Verifies and captures real-time Trello webhook payloads. |
+| **`/webhook-logs`** | `GET` | Inspects captured webhook event payloads. |
+
+### 2️⃣ `notion.py` (Notion Integration)
+| Endpoint | Method | Purpose |
+| :--- | :---: | :--- |
+| **`/notion/auth`** | `GET` | Starts Notion OAuth 2.0 authorization flow. |
+| **`/notion/callback`** | `GET` | Exchanges code for Notion access token & saves to session. |
+| **`/notion/users`** | `GET` | Lists users & bots in the workspace (verifies token). |
+| **`/notion/search`** | `GET`/`POST` | Searches shared databases & pages in the workspace. |
+| **`/notion/pages`** | `POST` | Creates a Notion page (`{"parent_id": "...", "title": "..."}`). |
+
+### 3️⃣ `cloudflare.py` (Cloudflare Integration)
+| Endpoint | Method | Purpose |
+| :--- | :---: | :--- |
+| **`/cloudflare/verify`** | `GET` | Verifies Cloudflare API Token validity. |
+| **`/cloudflare/zones`** | `GET` | Lists all Cloudflare Zones (domains). |
+| **`/cloudflare/zones/<id>/dns`** | `GET`/`POST` | Lists or creates DNS records (`{"type": "TXT", "name": "...", "content": "..."}`). |
+
+### 4️⃣ `app.py` (Orchestrator & UI)
+| Endpoint | Method | Purpose |
+| :--- | :---: | :--- |
+| **`/`** | `GET` | Renders a styled HTML dashboard with buttons to test all 3 services. (Returns JSON if requested via API/curl). |
+| **`/health`** | `GET` | Health check endpoint for Render. |
 
 ---
 
 ## 🚀 How to Deploy on Render (Step-by-Step)
 
 ### Step 1: Push to GitHub
-1. Initialize a Git repository and push this folder to a GitHub repository:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit for Trello OAuth backend"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
-   git push -u origin main
-   ```
+In this folder, run:
+```bash
+git init
+git add .
+git commit -m "Deploy modular Trello, Notion, and Cloudflare testing backend"
+git branch -M main
+git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+git push -u origin main
+```
 
-### Step 2: Create a Web Service on Render
-1. Go to [Render Dashboard](https://dashboard.render.com/) and click **New +** → **Web Service**.
+### Step 2: Create a Render Web Service
+1. Go to [dashboard.render.com](https://dashboard.render.com/) → **New +** → **Web Service**.
 2. Connect your GitHub repository.
-3. Configure the service settings:
-   - **Name:** `scanbit-trello-backend` (or your choice)
+3. Configure settings:
    - **Runtime:** `Python 3`
    - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `gunicorn app:app --bind 0.0.0.0:$PORT`
-   - **Instance Type:** `Free` (or higher if desired)
+   - **Instance Type:** `Free`
 
 ### Step 3: Add Environment Variables in Render
-In the **Environment** tab of your Render Web Service, add the following key-value pairs:
+In the **Environment** tab of your Render Web Service, configure the keys you need:
 
-| Key | Value / Example |
-| :--- | :--- |
-| `FLASK_SECRET_KEY` | A random secure secret string (e.g., `8d7a12b9c8e14e7a8...`) |
-| `FLASK_ENV` | `production` |
-| `TRELLO_API_KEY` | Your Trello Power-Up / API key |
-| `TRELLO_API_SECRET` | Your Trello Power-Up / API secret |
-| `CALLBACK_URL` | `https://your-app-name.onrender.com/callback` *(Replace with your actual Render URL)* |
-
----
-
-## 🔑 Step 4: Register Callback URL in Trello
-1. Go to the [Trello Power-Ups Admin Portal](https://trello.com/power-ups/admin).
-2. Select your Power-Up / API integration.
-3. In the **Allowed Origin / Callback URL** settings, ensure that your exact Render callback URL is allowed:
-   ```
-   https://your-app-name.onrender.com/callback
-   ```
+| Key | Example / Value | Required For |
+| :--- | :--- | :--- |
+| `FLASK_SECRET_KEY` | `your_secure_random_string` | All services |
+| `FLASK_ENV` | `production` | All services |
+| `TRELLO_API_KEY` | `your_trello_api_key` | `trello.py` |
+| `TRELLO_API_SECRET` | `your_trello_api_secret` | `trello.py` |
+| `CALLBACK_URL` | `https://your-app.onrender.com/callback` | `trello.py` |
+| `NOTION_TOKEN` | `secret_notion_integration_token` | `notion.py` (direct API) |
+| `NOTION_CLIENT_ID` | `your_notion_client_id` | `notion.py` (OAuth) |
+| `NOTION_CLIENT_SECRET` | `your_notion_client_secret` | `notion.py` (OAuth) |
+| `CLOUDFLARE_API_TOKEN` | `your_cloudflare_token` | `cloudflare.py` |
 
 ---
 
-## 🧪 Testing Your Backend
-
-1. **Health Check:**
-   - Open `https://your-app-name.onrender.com/` or `https://your-app-name.onrender.com/health`.
-   - You should see:
-     ```json
-     {
-       "service": "Scanbit Trello OAuth Backend",
-       "status": "running"
-     }
-     ```
-
-2. **Start OAuth Authorization:**
-   - Open `https://your-app-name.onrender.com/auth` in your browser.
-   - It will redirect you to Trello’s permission screen asking to authorize **Scanbit**.
-
-3. **Complete Callback & Inspect Token:**
-   - After approving on Trello, you will be redirected back to `/callback`.
-   - The response will display your Trello access token, secret, and user profile data in JSON format:
-     ```json
-     {
-       "status": "Connected",
-       "access_token": "your_oauth_access_token",
-       "access_secret": "your_oauth_access_secret",
-       "user": {
-         "id": "...",
-         "username": "...",
-         "fullName": "..."
-       }
-     }
-     ```
+## 🧪 Testing Once Deployed
+Open `https://your-app.onrender.com/` in your browser. You will see an interactive web dashboard with buttons to test **Trello**, **Notion**, and **Cloudflare** endpoints directly from your browser!
