@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from trello import trello_bp
 from notion import notion_bp
 from cloudflare import cloudflare_bp
+from okta import okta_bp
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
 app.register_blueprint(trello_bp)
 app.register_blueprint(notion_bp)
 app.register_blueprint(cloudflare_bp)
-
+app.register_blueprint(okta_bp)
 
 # ===============================================================================
 # HOME / DASHBOARD ROUTE (ONE-PAGE UI + JSON API)
@@ -153,6 +154,18 @@ DASHBOARD_HTML = """
             <p><small>Callback URL: <code>/cloudflare/callback</code> | DNS Records: <code>GET/POST /cloudflare/zones/&lt;zone_id&gt;/dns</code></small></p>
         </div>
 
+        <!-- OKTA CARD -->
+        <div class="card">
+            <h2>🟪 Okta Integration (okta.py)</h2>
+            <p>Connect your Okta account and test user & group endpoints.</p>
+            <div>
+                <a href="/okta/auth" class="btn btn-purple">1. Connect Okta (/okta/auth)</a>
+                <a href="/okta/me" class="btn" target="_blank">2. View User (/okta/me)</a>
+                <a href="/okta/users" class="btn btn-green" target="_blank">3. List Users (/okta/users)</a>
+            </div>
+            <p><small>Callback URL: <code>/okta/callback</code> | User Info: <code>GET /okta/me</code></small></p>
+        </div>
+
         <!-- SYSTEM CARD -->
         <div class="card">
             <h2>⚙️ System & Health</h2>
@@ -176,7 +189,8 @@ def home():
             "modules": {
                 "trello_file": "trello.py",
                 "notion_file": "notion.py",
-                "cloudflare_file": "cloudflare.py"
+                "cloudflare_file": "cloudflare.py",
+                "okta_file": "okta.py"
             },
             "endpoints": {
                 "trello": {
@@ -203,6 +217,13 @@ def home():
                     "list_dns": "/cloudflare/zones/<zone_id>/dns",
                     "create_dns": "POST /cloudflare/zones/<zone_id>/dns"
                 },
+                "okta": {
+                    "oauth_login": "/okta/auth",
+                    "oauth_callback": "/okta/callback",
+                    "view_user": "/okta/me",
+                    "list_users": "/okta/users"
+                },
+                
                 "system": {
                     "health": "/health",
                     "json_summary": "/?format=json"
